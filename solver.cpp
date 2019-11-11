@@ -58,6 +58,7 @@ void removeArcChild(int, int, int);
 int main()
 {
   clock_t inicio, fin;
+  double tiempo;
   cin >> tam;
 
   sqTam = floor(sqrt(tam));
@@ -101,16 +102,25 @@ int main()
   inicio = clock();
   Backtracking();
   fin = clock();
+  tiempo = double(fin - inicio) / double(CLOCKS_PER_SEC);
+  cout << "Tiempo Backtracking: " << fixed << tiempo << setprecision(5);
+  cout << " segundos." << endl;
 
   cout << "ForwardChecking" << endl;
   inicio = clock();
   ForwardChecking(0, 0);
   fin = clock();
+  tiempo = double(fin - inicio) / double(CLOCKS_PER_SEC);
+  cout << "Tiempo ForwardChecking: " << fixed << tiempo << setprecision(5);
+  cout << " segundos." << endl;
 
   cout << "Arc Consistency" << endl;
   inicio = clock();
   ArcConsistency(0, 0);
   fin = clock();
+  tiempo = double(fin - inicio) / double(CLOCKS_PER_SEC);
+  cout << "Tiempo Arc Consistency: " << fixed << tiempo << setprecision(5);
+  cout << " segundos." << endl;
 
   return 0;
 }
