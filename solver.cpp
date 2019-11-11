@@ -39,10 +39,12 @@ queue<pair<pair<int, int>, int>> lonely;
 
 stack<Movimientos> moves;
 stack<ArcMove> arcMoves;
+stack<int> hijosQ;
 
 void printResult();
 void printDomain();
 int getLowBound(int);
+void Backtracking();
 void ForwardChecking(int, int);
 void ArcConsistency(int, int);
 int getSq(int, int);
@@ -94,6 +96,11 @@ int main()
       faltantes--;
     }
   } while (inF != 0 && inC != 0 && inN != 0);
+
+  cout << "Backtracking" << endl;
+  inicio = clock();
+  Backtracking();
+  fin = clock();
 
   cout << "ForwardChecking" << endl;
   inicio = clock();
@@ -367,35 +374,25 @@ void removeForwardChild(int f, int c, int n)
 
 void ArcConsistency(int fil, int col)
 {
-  // cout << "Arc Called: " << fil << " , " << col << endl;
-  // cout << "***************" << endl;
-  // printResult();
-  // cout << "***************" << endl;
   if (fil >= tam)
   {
-    // cout << "OP1" << endl;
     printResult();
   }
   else if (tablero[fil][col] != 0)
   {
-    // cout << "OP2" << endl;
     if ((col + 1) % tam == 0)
     {
-      // cout << "OP2.1" << endl;
       ArcConsistency(fil + 1, 0);
     }
     else
     {
-      // cout << "OP2.2" << endl;
       ArcConsistency(fil, col + 1);
     }
   }
   else
   {
-    // cout << "OP3" << endl;
     for (set<int>::iterator it = domainCasillas[fil][col].begin(); it != domainCasillas[fil][col].end(); it++)
     {
-      // cout << "Regresa " << fil << " , " << col << " -> " << (*it) << endl;
       if (applyArcChild(fil, col, (*it)))
       {
         if ((col + 1) % tam == 0)
@@ -414,14 +411,12 @@ void ArcConsistency(int fil, int col)
 
 bool applyArcChild(int fila, int columna, int numb)
 {
-  // cout << "Called Arc Consistency Apply: " << fila << " , " << columna << " opt: " << numb << endl;
   int sf, sc;
   bool errFlg = false;
   ArcMove a;
 
   if (tablero[fila][columna] != 0 && tablero[fila][columna] != numb)
   {
-    // cout << "Error?" << endl;
     errFlg = true;
   }
   else
@@ -518,38 +513,15 @@ bool applyArcChild(int fila, int columna, int numb)
       }
       else if (domainCasillas[dst.first][dst.second].size() == 0)
       {
-        // cout << "Entra al Error" << endl;
-        // printResult();
-        // printDomain();
         errFlg = true;
       }
     }
   }
 
-  // while (!errFlg && !lonely.empty())
-  // {
-  //   pair<pair<int, int>, int> soliman;
-  //   soliman = lonely.front();
-  //   lonely.pop();
-  //   errFlg = applyArcChild(soliman.first.first, soliman.first.second, soliman.second);
-  // }
-
-  // while (!lonely.empty())
-  // {
-  //   lonely.pop();
-  // }
-
   while (!ac3q.empty())
   {
     ac3q.pop();
   }
-
-  // if (!errFlg)
-  // {
-  //   cout << "No Error " << fila << " , " << columna << " -> " << numb << endl;
-  //   printResult();
-  //   printDomain();
-  // }
 
   return !errFlg;
 }
@@ -576,4 +548,106 @@ void removeArcChild(int f, int c, int n)
       domainCasillas[mv.f][mv.c].insert(mv.n);
     }
   } while (!arcMoves.empty() && !doneRemove);
+}
+
+void Backtracking()
+{
+  int fil = 0, col = 0;
+  int sc, sf;
+  int hijos = 0;
+  bool foundFirst = false;
+  set<int> filaB;
+  set<int> columnaB;
+  set<int> cuadroB;
+  // cout << "******************************" << endl;
+  // printResult();
+
+  while (fil < tam && !foundFirst)
+  {
+    col = 0;
+    while (col < tam && !foundFirst)
+    {
+      if (tablero[fil][col] == 0)
+      {
+        foundFirst = true;
+      }
+      else
+      {
+        col++;
+      }
+    }
+    if (!foundFirst)
+    {
+      fil++;
+    }
+  }
+
+  if (fil < tam)
+  {
+    // cout << fil << " , " << col << endl;
+    // cout << "Dos" << endl;
+
+    for (int i = 0; i < tam; i++)
+    {
+      if (i != fil)
+      {
+        columnaB.insert(tablero[i][col]);
+      }
+
+      if (i != col)
+      {
+        filaB.insert(tablero[fil][i]);
+      }
+    }
+
+    sf = getLowBound(fil);
+    sc = getLowBound(col);
+
+    // cout << "Tres" << endl;
+    for (int i = 0; i < sqTam; i++)
+    {
+      for (int j = 0; j < sqTam; j++)
+      {
+        if (sf + i != fil && sc + j != col)
+        {
+          cuadroB.insert(tablero[sf + i][sc + j]);
+        }
+      }
+    }
+
+    // cout << "Hijos: ";
+    for (int i = 1; i <= 9; i++)
+    {
+      if (filaB.find(i) == filaB.end() && columnaB.find(i) == columnaB.end() && cuadroB.find(i) == cuadroB.end())
+      {
+        // cout << i << '\t';
+        hijosQ.push(i);
+        hijos++;
+      }
+    }
+    // cout << endl
+    //  << "******************************" << endl;
+
+    while (!hijosQ.empty() && hijos--)
+    {
+      int ch = hijosQ.top();
+      hijosQ.pop();
+      tablero[fil][col] = ch;
+      faltantes--;
+      // if (faltantes == 0)
+      // {
+      //   printResult();
+      // }
+      // else
+      // {
+      Backtracking();
+      // }
+      tablero[fil][col] = 0;
+      faltantes++;
+    }
+  }
+  else
+  {
+    printResult();
+  }
 }
