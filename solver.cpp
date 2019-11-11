@@ -11,6 +11,14 @@ typedef struct
 
 typedef struct
 {
+  int f;
+  int c;
+  int n;
+  char t;
+} ArcMove;
+
+typedef struct
+{
   bool eraseCol;
   bool eraseRow;
   bool eraseSqr;
@@ -26,18 +34,24 @@ int faltantes;
 int inF, inC, inN;
 set<int> **domainCasillas;
 set<int> *filas, *columnas, *cuadros;
+queue<pair<pair<int, int>, pair<int, int>>> ac3q;
+queue<pair<pair<int, int>, int>> lonely;
 
 stack<Movimientos> moves;
+stack<ArcMove> arcMoves;
 
 void printResult();
 void printDomain();
 int getLowBound(int);
 void ForwardChecking(int, int);
+void ArcConsistency(int, int);
 int getSq(int, int);
 bool isCandidate(int, int, int);
 void updateDomains(int, int, int);
 bool applyForwardChild(int, int, int);
 void removeForwardChild(int, int, int);
+bool applyArcChild(int, int, int);
+void removeArcChild(int, int, int);
 
 int main()
 {
@@ -81,13 +95,15 @@ int main()
     }
   } while (inF != 0 && inC != 0 && inN != 0);
 
+  cout << "ForwardChecking" << endl;
   inicio = clock();
   ForwardChecking(0, 0);
   fin = clock();
 
-  // inicio = clock();
-  // ArcConsistency(0, 0);
-  // fin = clock();
+  cout << "Arc Consistency" << endl;
+  inicio = clock();
+  ArcConsistency(0, 0);
+  fin = clock();
 
   return 0;
 }
@@ -349,30 +365,215 @@ void removeForwardChild(int f, int c, int n)
   }
 }
 
-// void ArcConsistency(int fil, int col)
-// {
-//   set<int>::iterator it;
-//   int *options;
-//   int tam = columnsDomain[searchCol].size();
-//   int i = 0;
+void ArcConsistency(int fil, int col)
+{
+  // cout << "Arc Called: " << fil << " , " << col << endl;
+  // cout << "***************" << endl;
+  // printResult();
+  // cout << "***************" << endl;
+  if (fil >= tam)
+  {
+    // cout << "OP1" << endl;
+    printResult();
+  }
+  else if (tablero[fil][col] != 0)
+  {
+    // cout << "OP2" << endl;
+    if ((col + 1) % tam == 0)
+    {
+      // cout << "OP2.1" << endl;
+      ArcConsistency(fil + 1, 0);
+    }
+    else
+    {
+      // cout << "OP2.2" << endl;
+      ArcConsistency(fil, col + 1);
+    }
+  }
+  else
+  {
+    // cout << "OP3" << endl;
+    for (set<int>::iterator it = domainCasillas[fil][col].begin(); it != domainCasillas[fil][col].end(); it++)
+    {
+      // cout << "Regresa " << fil << " , " << col << " -> " << (*it) << endl;
+      if (applyArcChild(fil, col, (*it)))
+      {
+        if ((col + 1) % tam == 0)
+        {
+          ArcConsistency(fil + 1, 0);
+        }
+        else
+        {
+          ArcConsistency(fil, col + 1);
+        }
+      }
+      removeArcChild(fil, col, (*it));
+    }
+  }
+}
 
-//   if (searchCol == total)
-//   {
-//     getSolution();
-//   }
-//   else
-//   {
-//     options = new int[tam];
+bool applyArcChild(int fila, int columna, int numb)
+{
+  // cout << "Called Arc Consistency Apply: " << fila << " , " << columna << " opt: " << numb << endl;
+  int sf, sc;
+  bool errFlg = false;
+  ArcMove a;
 
-//     for (it = columnsDomain[searchCol].begin(); it != columnsDomain[searchCol].end(); it++)
-//     {
-//       options[i] = *it;
-//       i++;
-//     }
-//     for (i = 0; i < tam; i++)
-//     {
-//       applyArcChild(options[i], searchCol);
-//       removeArcChild(options[i], searchCol);
-//     }
-//   }
-// }
+  if (tablero[fila][columna] != 0 && tablero[fila][columna] != numb)
+  {
+    // cout << "Error?" << endl;
+    errFlg = true;
+  }
+  else
+  {
+    tablero[fila][columna] = numb;
+
+    a.f = fila;
+    a.c = columna;
+    a.n = numb;
+    a.t = 'T';
+    arcMoves.push(a);
+  }
+
+  for (int i = 0; i < tam; i++)
+  {
+    if (i != fila)
+    {
+      pair<int, int> src, dst;
+      pair<pair<int, int>, pair<int, int>> arco;
+      src.first = fila;
+      src.second = columna;
+      dst.first = i;
+      dst.second = columna;
+      arco.first = src;
+      arco.second = dst;
+      ac3q.push(arco);
+    }
+
+    if (i != columna)
+    {
+      pair<int, int> src, dst;
+      pair<pair<int, int>, pair<int, int>> arco;
+      src.first = fila;
+      src.second = columna;
+      dst.first = fila;
+      dst.second = i;
+      arco.first = src;
+      arco.second = dst;
+      ac3q.push(arco);
+    }
+  }
+
+  sf = getLowBound(fila);
+  sc = getLowBound(columna);
+
+  for (int i = 0; i < sqTam; i++)
+  {
+    for (int j = 0; j < sqTam; j++)
+    {
+      if (sf + i != fila && sc + j != columna)
+      {
+        pair<int, int> src, dst;
+        pair<pair<int, int>, pair<int, int>> arco;
+        src.first = fila;
+        src.second = columna;
+        dst.first = sf + i;
+        dst.second = sc + j;
+        arco.first = src;
+        arco.second = dst;
+        ac3q.push(arco);
+      }
+    }
+  }
+
+  while (!ac3q.empty() && !errFlg)
+  {
+    pair<int, int> src, dst;
+    pair<pair<int, int>, pair<int, int>> arco;
+    int forbiddenNum;
+    arco = ac3q.front();
+    ac3q.pop();
+
+    src = arco.first;
+    dst = arco.second;
+    forbiddenNum = numb;
+
+    if (tablero[dst.first][dst.second] == 0 && domainCasillas[dst.first][dst.second].find(forbiddenNum) != domainCasillas[dst.first][dst.second].end())
+    {
+      ArcMove dm;
+      dm.f = dst.first;
+      dm.c = dst.second;
+      dm.n = forbiddenNum;
+      dm.t = 'D';
+      arcMoves.push(dm);
+
+      domainCasillas[dst.first][dst.second].erase(forbiddenNum);
+      if (domainCasillas[dst.first][dst.second].size() == 1)
+      {
+        pair<pair<int, int>, int> soliman;
+        soliman.first.first = dst.first;
+        soliman.first.second = dst.second;
+        soliman.second = *(domainCasillas[dst.first][dst.second].begin());
+        lonely.push(soliman);
+      }
+      else if (domainCasillas[dst.first][dst.second].size() == 0)
+      {
+        // cout << "Entra al Error" << endl;
+        // printResult();
+        // printDomain();
+        errFlg = true;
+      }
+    }
+  }
+
+  // while (!errFlg && !lonely.empty())
+  // {
+  //   pair<pair<int, int>, int> soliman;
+  //   soliman = lonely.front();
+  //   lonely.pop();
+  //   errFlg = applyArcChild(soliman.first.first, soliman.first.second, soliman.second);
+  // }
+
+  // while (!lonely.empty())
+  // {
+  //   lonely.pop();
+  // }
+
+  while (!ac3q.empty())
+  {
+    ac3q.pop();
+  }
+
+  // if (!errFlg)
+  // {
+  //   cout << "No Error " << fila << " , " << columna << " -> " << numb << endl;
+  //   printResult();
+  //   printDomain();
+  // }
+
+  return !errFlg;
+}
+
+void removeArcChild(int f, int c, int n)
+{
+  bool doneRemove = false;
+  do
+  {
+    ArcMove mv;
+    mv = arcMoves.top();
+    arcMoves.pop();
+
+    if (mv.t == 'T')
+    {
+      tablero[mv.f][mv.c] = 0;
+      if (f == mv.f && c == mv.c && n == mv.n)
+      {
+        doneRemove = true;
+      }
+    }
+    else
+    {
+      domainCasillas[mv.f][mv.c].insert(mv.n);
+    }
+  } while (!arcMoves.empty() && !doneRemove);
+}
